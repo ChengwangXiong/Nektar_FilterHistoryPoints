@@ -82,6 +82,7 @@ class FilterHistoryPoints : public Filter
         unsigned int                            m_outputFrequency;
          /// plane to take history point from if using a homogeneous1D expansion
         unsigned int                            m_outputPlane;
+		unsigned int                            m_wavetophysical;
         bool                                    m_isHomogeneous1D;
         std::string                             m_outputFile;
         std::ofstream                           m_outputStream;

@@ -82,20 +82,31 @@ FilterHistoryPoints::FilterHistoryPoints(
         m_outputFrequency = floor(equ.Evaluate());
     }
 
-    // OutputPlane
+    // output value in wave space or physical space
     m_session->MatchSolverInfo("Homogeneous", "1D", m_isHomogeneous1D, false);
     if(m_isHomogeneous1D)
     {
-        it = pParams.find("OutputPlane");
-        if (it == pParams.end())
-        {
-            m_outputPlane = 0;
-        }
-        else
-        {
-            LibUtilities::Equation equ(m_session, it->second);
-            m_outputPlane = floor(equ.Evaluate());
-        }
+	//for 3D homogenous1D WaveToPhysical=1 backward Fourier transforms value from wave space to physical space 
+        it = pParams.find("WaveToPhysical");
+		if (it == pParams.end())
+		{
+			m_wavetophysical=0;
+			it = pParams.find("OutputPlane");
+			if (it == pParams.end())
+			{
+				m_outputPlane = 0;
+			}
+			else
+			{
+				LibUtilities::Equation equ(m_session, it->second);
+				m_outputPlane = floor(equ.Evaluate());
+			}
+		}
+		else
+		{
+			m_wavetophysical=1;
+			m_outputPlane = 0;
+		}
     }
 
     // Points
@@ -129,39 +140,60 @@ void FilterHistoryPoints::v_Initialise(
     m_historyList.clear();
 
     // Read history points
-    Array<OneD, NekDouble>  gloCoord(3,0.0);
+	Array<OneD, NekDouble>  gloCoord(3,0.0);
     int dim = pFields[0]->GetGraph()->GetSpaceDimension();
     int i = 0;
-    while (!m_historyPointStream.fail())
+	int npointsZ=1;
+	while (!m_historyPointStream.fail())
     {
-        m_historyPointStream >> gloCoord[0]
-                             >> gloCoord[1]
-                             >> gloCoord[2];
-        if(m_isHomogeneous1D) // overwrite with plane z
-        {
-            NekDouble Z = (pFields[0]->GetHomogeneousBasis()
-                                        ->GetZ())[m_outputPlane];
-            if(fabs(gloCoord[2]-Z) > NekConstants::kVertexTheSameDouble)
-            {
-                cout << "Reseting History point from " << gloCoord[2]
-                     << " to " << Z << endl;
-            }
-            gloCoord[2] = Z;
-        }
-
-        if (!m_historyPointStream.fail())
-        {
-            SpatialDomains::PointGeomSharedPtr vert
-                = MemoryManager<SpatialDomains::PointGeom>
-                ::AllocateSharedPtr(dim, i, gloCoord[0],
-                                    gloCoord[1], gloCoord[2]);
-
-            m_historyPoints.push_back(vert);
-            ++i;
-        }
-    }
-
-
+                   m_historyPointStream >> gloCoord[0]
+                                        >> gloCoord[1]
+                                       >> gloCoord[2];
+                   if(m_isHomogeneous1D) 
+					{	if(m_wavetophysical) // output physical value for quasi-3D  
+						{
+							npointsZ = m_session->GetParameter("HomModesZ");
+						}
+						else// overwrite with plane z
+						{
+							NekDouble Z = (pFields[0]->GetHomogeneousBasis()
+														->GetZ())[m_outputPlane];
+							if(fabs(gloCoord[2]-Z) > NekConstants::kVertexTheSameDouble)
+							{
+								cout << "Reseting History point from " << gloCoord[2]
+									 << " to " << Z << endl;
+							}
+							gloCoord[2] = Z;
+						}
+					}
+   
+                   if (!m_historyPointStream.fail())
+                   {
+					if(m_isHomogeneous1D&&m_wavetophysical)
+					{	SpatialDomains::PointGeomSharedPtr vert[npointsZ];
+						for(int nplane=0; nplane<npointsZ; nplane++)
+						{	
+							NekDouble Z = (pFields[0]->GetHomogeneousBasis()->GetZ())[nplane];
+							gloCoord[2] = Z;
+							vert[i]= MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(dim, i, gloCoord[0], gloCoord[1], gloCoord[2]);						
+							m_historyPoints.push_back(vert[i]);
+							++i;
+						}						
+					}
+					else
+					{
+						SpatialDomains::PointGeomSharedPtr vert= MemoryManager<SpatialDomains::PointGeom>
+								::AllocateSharedPtr(dim, i, gloCoord[0],
+													gloCoord[1], gloCoord[2]);	
+						m_historyPoints.push_back(vert) ;
+						++i;
+					}
+				}
+               }                 
+   m_historyPoints[3]->GetCoords(  gloCoord[0],
+									gloCoord[1],
+									gloCoord[2]);	
+    cout<<"Between read and process ID for i=3"<<" gloCoord[2]="<<gloCoord[2]<<endl;
     // Determine the unique process responsible for each history point
     // For points on a partition boundary, must select a single process
     LibUtilities::CommSharedPtr vComm = pFields[0]->GetComm();
@@ -237,7 +269,11 @@ void FilterHistoryPoints::v_Initialise(
         {
             if(m_isHomogeneous1D)
             {
-                int j;
+                if(m_wavetophysical)
+				{
+					m_outputPlane=i%npointsZ;
+				}
+				int j;
                 Array<OneD, const unsigned int> IDs
                                             = pFields[0]->GetZIDs();
                 for(j = 0; j < IDs.num_elements(); ++j)
