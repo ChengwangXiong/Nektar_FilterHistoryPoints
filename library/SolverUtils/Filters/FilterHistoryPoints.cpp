@@ -170,7 +170,8 @@ void FilterHistoryPoints::v_Initialise(
                    if (!m_historyPointStream.fail())
                    {
 					if(m_isHomogeneous1D&&m_wavetophysical)
-					{	SpatialDomains::PointGeomSharedPtr vert[npointsZ];
+					{
+						SpatialDomains::PointGeomSharedPtr vert[npointsZ];
 						for(int nplane=0; nplane<npointsZ; nplane++)
 						{	
 							NekDouble Z = (pFields[0]->GetHomogeneousBasis()->GetZ())[nplane];
@@ -190,10 +191,6 @@ void FilterHistoryPoints::v_Initialise(
 					}
 				}
                }                 
-   m_historyPoints[3]->GetCoords(  gloCoord[0],
-									gloCoord[1],
-									gloCoord[2]);	
-    cout<<"Between read and process ID for i=3"<<" gloCoord[2]="<<gloCoord[2]<<endl;
     // Determine the unique process responsible for each history point
     // For points on a partition boundary, must select a single process
     LibUtilities::CommSharedPtr vComm = pFields[0]->GetComm();
