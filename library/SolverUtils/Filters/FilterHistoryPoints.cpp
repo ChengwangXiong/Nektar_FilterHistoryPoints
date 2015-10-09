@@ -145,30 +145,13 @@ void FilterHistoryPoints::v_Initialise(
 			{				
 				NekDouble Z = (pFields[0]->GetHomogeneousBasis()
 											->GetZ())[nplane];
-				if(fabs(gloCoord[2]-Z) > NekConstants::kVertexTheSameDouble)
-				{
-					cout << "Reseting History point from " << gloCoord[2]
-						 << " to " << Z << endl;
-				}
 				gloCoord[2] = Z;
-			
-
 				if (!m_historyPointStream.fail())
 				{
 					SpatialDomains::PointGeomSharedPtr vert=MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(dim, i, gloCoord[0],gloCoord[1], gloCoord[2]);
-
 					m_historyPoints.push_back(vert);
 					++i;
-					cout<<"if (!m_historyPointStream.fail())"<<endl;
 				}
-				for(int j=0; j<nplane+1; j++)
-				{	
-					m_historyPoints[j]->GetCoords(  gloCoord[0],
-										gloCoord[1],
-										gloCoord[2]);	
-					cout<<"In loop "<<nplane<<" m_historyPoints["<<j<<"] gloCoord[2]="<<gloCoord[2]<<endl;
-				}
-				
 			}
 		}
     }
